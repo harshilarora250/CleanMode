@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CleanMode</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@300;400;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --accent: #c8ff00;
+      --muted: #333;
+      --text: #f0f0f0;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* ── LOCK SCREEN ── */
+    #lock-screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 48px;
+      background: var(--bg);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+      z-index: 10;
+    }
+
+    #lock-screen.hidden {
+      opacity: 0;
+      transform: scale(0.96);
+      pointer-events: none;
+    }
+
+    .logo {
+      font-size: clamp(40px, 6vw, 76px);
+      font-weight: 800;
+      letter-spacing: -2px;
+    }
+    .logo span { color: var(--accent); }
+
+    .subtitle {
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 4px;
+      text-transform: uppercase;
+    }
+
+    .key-row {
+      display: flex;
+      gap: 14px;
+    }
+
+    .key-dot {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 2px solid var(--muted);
+      background: transparent;
+      transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .key-dot.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      box-shadow: 0 0 10px var(--accent), 0 0 22px rgba(200,255,0,0.25);
+    }
+
+    .key-visual {
+      width: 76px;
+      height: 76px;
+      border: 2px solid var(--muted);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 38px;
+      font-weight: 700;
+      font-family: 'Space Mono', monospace;
+      color: var(--muted);
+      transition: all 0.1s ease;
+    }
+
+    .key-visual.flash {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(200,255,0,0.07);
+      box-shadow: 0 0 18px rgba(200,255,0,0.2);
+    }
+
+    .hint {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 2px;
+      text-align: center;
+      line-height: 2.2;
+    }
+
+    .hint kbd {
+      display: inline-block;
+      padding: 2px 8px;
+      border: 1px solid #444;
+      border-radius: 4px;
+      font-family: inherit;
+      color: #aaa;
+      font-size: 12px;
+    }
+
+    /* ── CLEANING SCREEN ── */
+    #clean-screen {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      z-index: 100;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #clean-screen.visible {
+      display: flex;
+      animation: fadeToBlack 0.4s ease forwards;
+    }
+
+    @keyframes fadeToBlack {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    /* subtle wipe shimmer */
+    .wipe-bar {
+      position: fixed;
+      top: 0;
+      left: -100%;
+      width: 60%;
+      height: 100%;
+      background: linear-gradient(90deg,
+        transparent,
+        rgba(255,255,255,0.018),
+        rgba(255,255,255,0.045),
+        rgba(255,255,255,0.018),
+        transparent
+      );
+      animation: wipe 5s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    @keyframes wipe {
+      0%   { left: -70%; }
+      55%  { left: 110%; }
+      100% { left: 110%; }
+    }
+
+    /* exit progress indicator — bottom center, very dim */
+    .exit-strip {
+      position: fixed;
+      bottom: 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      z-index: 101;
+    }
+
+    .exit-dots {
+      display: flex;
+      gap: 10px;
+    }
+
+    .exit-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: transparent;
+      transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+    }
+
+    .exit-dot.active {
+      background: rgba(200,255,0,0.7);
+      border-color: rgba(200,255,0,0.7);
+      box-shadow: 0 0 8px rgba(200,255,0,0.4);
+    }
+
+    .exit-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: rgba(255,255,255,0.1);
+      text-transform: uppercase;
+      animation: breathe 4s ease-in-out infinite;
+    }
+
+    @keyframes breathe {
+      0%, 100% { opacity: 0.4; }
+      50%       { opacity: 1; }
+    }
+
+    /* grain */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0.4;
+    }
+
+    /* corner marks on lock screen */
+    .corner {
+      position: fixed;
+      width: 32px;
+      height: 32px;
+      opacity: 0.08;
+    }
+    .corner.tl { top: 20px; left: 20px; border-top: 1px solid #fff; border-left: 1px solid #fff; }
+    .corner.tr { top: 20px; right: 20px; border-top: 1px solid #fff; border-right: 1px solid #fff; }
+    .corner.bl { bottom: 20px; left: 20px; border-bottom: 1px solid #fff; border-left: 1px solid #fff; }
+    .corner.br { bottom: 20px; right: 20px; border-bottom: 1px solid #fff; border-right: 1px solid #fff; }
+  </style>
+</head>
+<body>
+
+  <!-- LOCK SCREEN -->
+  <div id="lock-screen">
+    <div class="corner tl"></div>
+    <div class="corner tr"></div>
+    <div class="corner bl"></div>
+    <div class="corner br"></div>
+
+    <div class="logo">Clean<span>Mode</span></div>
+    <p class="subtitle">Keyboard &amp; Screen Cleaning Mode</p>
+
+    <div style="display:flex;flex-direction:column;align-items:center;gap:18px;">
+      <div class="key-visual" id="key-visual">2</div>
+      <div class="key-row">
+        <div class="key-dot" id="d0"></div>
+        <div class="key-dot" id="d1"></div>
+        <div class="key-dot" id="d2"></div>
+        <div class="key-dot" id="d3"></div>
+      </div>
+    </div>
+
+    <div class="hint">
+      Press <kbd>2</kbd> four times to enter cleaning mode<br>
+      All keyboard input will be blocked &amp; screen goes dark<br>
+      Type <kbd>2</kbd><kbd>2</kbd><kbd>2</kbd><kbd>2</kbd> again to exit
+    </div>
+  </div>
+
+  <!-- CLEANING SCREEN -->
+  <div id="clean-screen">
+    <div class="wipe-bar"></div>
+    <div class="exit-strip">
+      <div class="exit-dots">
+        <div class="exit-dot" id="e0"></div>
+        <div class="exit-dot" id="e1"></div>
+        <div class="exit-dot" id="e2"></div>
+        <div class="exit-dot" id="e3"></div>
+      </div>
+      <p class="exit-label">Type 2222 to exit</p>
+    </div>
+  </div>
+
+  <script>
+    const KEY = '2';
+    const REQUIRED = 4;
+
+    let lockCount = 0;
+    let exitCount = 0;
+    let inClean   = false;
+
+    const lockScreen = document.getElementById('lock-screen');
+    const cleanScreen = document.getElementById('clean-screen');
+    const keyVisual   = document.getElementById('key-visual');
+    const lockDots    = [0,1,2,3].map(i => document.getElementById('d' + i));
+    const exitDots    = [0,1,2,3].map(i => document.getElementById('e' + i));
+
+    function updateLockDots() {
+      lockDots.forEach((d, i) => d.classList.toggle('active', i < lockCount));
+    }
+    function updateExitDots() {
+      exitDots.forEach((d, i) => d.classList.toggle('active', i < exitCount));
+    }
+    function flashKey() {
+      keyVisual.classList.add('flash');
+      setTimeout(() => keyVisual.classList.remove('flash'), 140);
+    }
+
+    function enterClean() {
+      inClean = true;
+      exitCount = 0;
+      updateExitDots();
+      lockScreen.classList.add('hidden');
+      cleanScreen.classList.add('visible');
+    }
+
+    function exitClean() {
+      inClean = false;
+      lockCount = 0;
+      exitCount = 0;
+      updateLockDots();
+      updateExitDots();
+      cleanScreen.classList.remove('visible');
+      setTimeout(() => lockScreen.classList.remove('hidden'), 50);
+    }
+
+    // Capture phase — intercepts before browser or page handles anything
+    document.addEventListener('keydown', (e) => {
+      if (inClean) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        if (e.key === KEY) {
+          exitCount++;
+          updateExitDots();
+          if (exitCount >= REQUIRED) exitClean();
+        } else {
+          // wrong key resets exit sequence
+          exitCount = 0;
+          updateExitDots();
+        }
+        return;
+      }
+
+      // Lock screen
+      if (e.key === KEY) {
+        flashKey();
+        lockCount++;
+        updateLockDots();
+        if (lockCount >= REQUIRED) {
+          lockCount = 0;
+          updateLockDots();
+          setTimeout(enterClean, 180);
+        }
+      } else {
+        lockCount = 0;
+        updateLockDots();
+      }
+    }, true);
+
+    // Swallow all other keyboard events while in clean mode
+    ['keyup', 'keypress', 'input', 'paste', 'cut', 'copy'].forEach(evt => {
+      document.addEventListener(evt, (e) => {
+        if (inClean) { e.preventDefault(); e.stopImmediatePropagation(); }
+      }, true);
+    });
+
+    // Block right-click in clean mode
+    document.addEventListener('contextmenu', (e) => { if (inClean) e.preventDefault(); }, true);
+
+    // Block mouse clicks (accidental) in clean mode — don't exit on click
+    document.addEventListener('mousedown', (e) => { if (inClean) e.preventDefault(); }, true);
+    document.addEventListener('mouseup', (e) => { if (inClean) e.preventDefault(); }, true);
+    document.addEventListener('click', (e) => { if (inClean) e.preventDefault(); }, true);
+  </script>
+</body>
+</html>
